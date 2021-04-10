@@ -26,11 +26,11 @@ public class Main {
     }
 
     private static void help() {
-        System.out.printf("java Main");
-        System.out.printf("\t-h --help");
-        System.out.printf("\t--url repositoryUrl");
-        System.out.printf("\t--id repositoryId");
-        System.out.printf("\t--dir jar root path");
+        System.out.printf("java Main\n");
+        System.out.printf("\t-h --help\n");
+        System.out.printf("\t--url repositoryUrl\n");
+        System.out.printf("\t--id repositoryId\n");
+        System.out.printf("\t--dir jar root path\n");
     }
 
     private static Option parseArgs(String[] args) {
