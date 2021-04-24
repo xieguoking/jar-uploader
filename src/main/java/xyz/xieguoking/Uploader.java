@@ -39,7 +39,7 @@ public class Uploader {
     private final String repositoryUrl;
     private final String repositoryId;
 
-    public static final String FORMAT = "${mvn} mvn deploy:deploy-file " +
+    public static final String FORMAT = "${mvn} deploy:deploy-file " +
             "-DgroupId=${groupId} " +
             "-DartifactId=${artifactId} " +
             "-Dversion=${version} " +
