@@ -95,7 +95,7 @@ public class Uploader {
                     try (InputStream inputStream = zipFile.getInputStream(entry)) {
                         byte[] data = new byte[(int) entry.getSize()];
                         inputStream.read(data);
-                        File pomFile = new File(userDir/*jarFile.getParent()*/, "pom.xml");
+                        File pomFile = new File(jarFile.getParent(), "pom.xml");
                         try (OutputStream os = new FileOutputStream(pomFile)) {
                             os.write(data);
                         }
@@ -129,6 +129,7 @@ public class Uploader {
                         }
                         final int ret = process.waitFor();
                         System.out.println("error code:" + ret);
+                        return;
                     }
                 }
 
@@ -180,22 +181,21 @@ public class Uploader {
         return null;
     }
 
-    private void createPomFile(File pomFile, PomInfo pomInfo) {
+    private void createPomFile(File pomFile, PomInfo pomInfo) throws IOException {
         String pom = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
                 "<project xmlns=\"http://maven.apache.org/POM/4.0.0\"\n" +
                 "         xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n" +
                 "         xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\">\n" +
                 "    <modelVersion>4.0.0</modelVersion>\n" +
-                "    <groupId>${groupId}</groupId>\n" +
-                "    <artifactId>${artifactId}</artifactId>\n" +
-                "    <version>${version}</version>\n" +
+                "    <groupId>$groupId</groupId>\n" +
+                "    <artifactId>$artifactId</artifactId>\n" +
+                "    <version>$version</version>\n" +
                 "    <packaging>jar</packaging> \n" +
-                "</project>\n"
-                        .replace("${artifactId}", pomInfo.getArtifactId())
-                        .replace("${groupId}", pomInfo.getGroupId())
-                        .replace("${version}", pomInfo.getVersion());
+                "</project>\n";
+        pom = pom.replace("$artifactId", pomInfo.getArtifactId());
+        pom = pom.replace("$groupId", pomInfo.getGroupId());
+        pom = pom.replace("$version", pomInfo.getVersion());
 
-        pomFile.deleteOnExit();
         try (FileOutputStream fos = new FileOutputStream(pomFile)) {
             fos.write(pom.getBytes());
             fos.flush();
