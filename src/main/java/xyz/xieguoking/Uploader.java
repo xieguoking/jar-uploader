@@ -14,6 +14,8 @@ import javax.xml.xpath.XPathFactory;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -38,6 +40,8 @@ public class Uploader {
     private final File root;
     private final String repositoryUrl;
     private final String repositoryId;
+    //5M
+    private final int maxBytes = 1024 * 1024 * 5;
 
     public static final String FORMAT = "${mvn} deploy:deploy-file " +
             "-DgroupId=${groupId} " +
@@ -47,7 +51,7 @@ public class Uploader {
             "-Dfile=${jarFile} " +
             "-DpomFile=${pomFile} " +
             "-Durl=${repositoryUrl} " +
-            "-DrepositoryId=${repositoryId} ";
+            "-DrepositoryId=${repositoryId} -X";
 
     public Uploader(File root, String repositoryUrl, String repositoryId) {
         this.root = root;
@@ -56,8 +60,20 @@ public class Uploader {
     }
 
     public void uploadAll() {
-        final File[] files = root.listFiles();
+        uploadDir(root);
+    }
+
+    /**
+     * 便利目录下的jar并上传
+     *
+     * @param dir
+     */
+    private void uploadDir(File dir) {
+        final File[] files = dir.listFiles();
         for (File file : files) {
+            if (file.isDirectory()) {
+                uploadDir(file);
+            }
             if (file.isFile() && file.getName().endsWith(".jar")) {
                 upload(file);
             }
@@ -65,8 +81,13 @@ public class Uploader {
     }
 
     public void upload(File jarFile) {
+        if (jarFile.length() > maxBytes) {
+            System.out.println("ignore " + jarFile.getPath());
+            return;
+        }
         try {
             ZipFile zipFile = new ZipFile(jarFile);
+            File userDir = new File(System.getProperty("user.home"));
             final Enumeration<? extends ZipEntry> entries = zipFile.entries();
             while (entries.hasMoreElements()) {
                 final ZipEntry entry = entries.nextElement();
@@ -74,11 +95,13 @@ public class Uploader {
                     try (InputStream inputStream = zipFile.getInputStream(entry)) {
                         byte[] data = new byte[(int) entry.getSize()];
                         inputStream.read(data);
-                        File pomFile = new File(jarFile.getParent(), "pom.xml");
+                        File pomFile = new File(userDir/*jarFile.getParent()*/, "pom.xml");
                         try (OutputStream os = new FileOutputStream(pomFile)) {
                             os.write(data);
                         }
                         PomInfo pomInfo = parsePomInfo(data);
+
+                        createPomFile(pomFile, pomInfo);
 
                         String command = FORMAT
                                 .replace("${repositoryUrl}", repositoryUrl)
@@ -155,5 +178,31 @@ public class Uploader {
             }
         }
         return null;
+    }
+
+    private void createPomFile(File pomFile, PomInfo pomInfo) {
+        String pom = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+                "<project xmlns=\"http://maven.apache.org/POM/4.0.0\"\n" +
+                "         xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n" +
+                "         xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\">\n" +
+                "    <modelVersion>4.0.0</modelVersion>\n" +
+                "    <groupId>${groupId}</groupId>\n" +
+                "    <artifactId>${artifactId}</artifactId>\n" +
+                "    <version>${version}</version>\n" +
+                "    <packaging>jar</packaging> \n" +
+                "</project>\n"
+                        .replace("${artifactId}", pomInfo.getArtifactId())
+                        .replace("${groupId}", pomInfo.getGroupId())
+                        .replace("${version}", pomInfo.getVersion());
+
+        pomFile.deleteOnExit();
+        try (FileOutputStream fos = new FileOutputStream(pomFile)) {
+            fos.write(pom.getBytes());
+            fos.flush();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }
